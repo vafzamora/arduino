@@ -1,0 +1,7 @@
+{
+    "sketch": "DigitalReadLeds.ino",
+    "port": "COM6",
+    "board": "arduino:avr:nano",
+    "configuration": "cpu=atmega328old",
+    "programmer": "AVRISP mkII"
+}
