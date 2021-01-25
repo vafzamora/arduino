@@ -33,3 +33,4 @@
 
 # configuração do wifi
 wifi_configs.h
+az-provision/include/iot_configs.h
