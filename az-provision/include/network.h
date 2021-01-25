@@ -1,6 +1,8 @@
 #include <WiFiClientSecure.h>
+#include <PubSubClient.h>
 
-void connectToWiFi();
-void initializeTime();
-void printCurrentTime();
 WiFiClientSecure initializeWiFiSecureClient();
+
+void establishConnection();
+
+PubSubClient getMqttClient(); 

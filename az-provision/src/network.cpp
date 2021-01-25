@@ -2,6 +2,7 @@
 #include <time.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
+#include <PubSubClient.h>
 
 #include "wifi_configs.h"
 #include "ca.h"
@@ -64,6 +65,13 @@ WiFiClientSecure initializeWiFiSecureClient()
   if (!wifi_client.setCACert((const uint8_t *)ca_pem, ca_pem_len))
   {
     Serial.println("setCACert() FAILED");
-    return wifi_client;
   }
+  return wifi_client;
+}
+
+void establishConnection()
+{
+  connectToWiFi();
+  initializeTime();
+  printCurrentTime();
 }
