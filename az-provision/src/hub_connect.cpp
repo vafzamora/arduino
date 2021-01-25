@@ -18,6 +18,7 @@
 
 #include "iot_configs.h"
 #include "network.h"
+#include "sensors.h"
 
 #define sizeofarray(a) (sizeof(a) / sizeof(a[0]))
 #define ONE_HOUR_IN_SECS 3600
@@ -35,6 +36,11 @@ static WiFiClientSecure wifi_client = initializeWiFiSecureClient();
 static PubSubClient mqtt_client(wifi_client);
 
 static az_iot_hub_client hubClient;
+
+static char telemetry_topic[128];
+static uint8_t telemetry_payload[100];
+static uint32_t telemetry_send_count = 0;
+static unsigned long next_telemetry_send_time_ms = 0;
 
 void receivedCallback(char *topic, byte *payload, unsigned int length)
 {
@@ -177,10 +183,70 @@ void connectIoTHub(char *iotHubHost, char *clientId)
       Serial.print(" failed, status code =");
       Serial.print(mqtt_client.state());
       Serial.println(". Try again in 5 seconds.");
-      
+
       // Wait 5 seconds before retrying
       delay(5000);
     }
   }
   mqtt_client.subscribe(AZ_IOT_HUB_CLIENT_C2D_SUBSCRIBE_TOPIC);
+}
+
+static char *getTelemetryPayload()
+{
+  az_span temp_span = az_span_create(telemetry_payload, sizeof(telemetry_payload));
+  temp_span = az_span_copy(temp_span, AZ_SPAN_FROM_STR("{ \"deviceId\":\"" IOT_CONFIG_DEVICE_ID "\",\"msgCount\":"));
+  (void)az_span_u32toa(temp_span, telemetry_send_count++, &temp_span);
+
+  //data from DHT sensor
+  SensorRead data = getSensorData();
+  temp_span = az_span_copy(temp_span, AZ_SPAN_FROM_STR(",\"temperature\":"));
+  (void)az_span_dtoa(temp_span, data.temperature, 2, &temp_span);
+  temp_span = az_span_copy(temp_span, AZ_SPAN_FROM_STR(",\"humidity\":"));
+  (void)az_span_dtoa(temp_span, data.humidity, 2, &temp_span);
+
+  //analog input from LDR
+  temp_span = az_span_copy(temp_span, AZ_SPAN_FROM_STR(",\"light\":"));
+  (void)az_span_u32toa(temp_span, data.light, &temp_span);
+
+  temp_span = az_span_copy(temp_span, AZ_SPAN_FROM_STR(" }"));
+  temp_span = az_span_copy_u8(temp_span, '\0');
+
+  return (char *)telemetry_payload;
+}
+
+static void sendTelemetry()
+{
+  digitalWrite(LED_BUILTIN, HIGH);
+  Serial.print(millis());
+  Serial.print(" ESP8266 Sending telemetry . . . ");
+  int ret = az_iot_hub_client_telemetry_get_publish_topic(
+      &hubClient, NULL, telemetry_topic, sizeof(telemetry_topic), NULL);
+  if (az_result_failed(ret))
+  {
+    Serial.printf("Failed az_iot_hub_client_telemetry_get_publish_topic (%i)", ret);
+    return;
+  }
+  mqtt_client.publish(telemetry_topic, getTelemetryPayload(), false);
+  Serial.println("OK");
+  delay(100);
+  digitalWrite(LED_BUILTIN, LOW);
+}
+
+void sendTelemetryLoop()
+{
+  if (millis() > next_telemetry_send_time_ms)
+  {
+    // Check if connected, reconnect if needed.
+    if (!mqtt_client.connected())
+    {
+      establishConnection();
+      //connectIoTHub();
+    }
+
+    sendTelemetry();
+    next_telemetry_send_time_ms = millis() + TELEMETRY_FREQUENCY_MILLISECS;
+  }
+
+  // MQTT loop must be called to process Device-to-Cloud and Cloud-to-Device.
+  mqtt_client.loop();
 }
