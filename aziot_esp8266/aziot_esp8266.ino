@@ -23,6 +23,7 @@
 #include <DHT.h>
 
 #include "iot_configs.h"
+#include "wifi_configs.h"
 #include "ca.h"
 
 // Status LED: will remain high on error and pulled high for a short time for each successful send.
@@ -31,6 +32,8 @@
 #define ONE_HOUR_IN_SECS 3600
 #define NTP_SERVERS "pool.ntp.org", "time.nist.gov"
 #define MQTT_PACKET_SIZE 1024
+
+#define ADC0 0
 
 //DHT 11 sensor configuration
 #define DHTPIN 12
@@ -310,7 +313,7 @@ DhtSensorRead getDhtSensorData(){
 }
 
 int getLightData(){
-    return analogRead(A0); 
+    return analogRead(ADC0); 
 }
 
 
